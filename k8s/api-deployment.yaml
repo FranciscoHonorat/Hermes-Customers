@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mundo-invest-api
+  namespace: default
+  labels:
+    app: mundo-invest-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mundo-invest-api
+  template:
+    metadata:
+      labels:
+        app: mundo-invest-api
+    spec:
+      containers:
+        - name: api
+          image: franciscohonorat/mundo-invest:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: mundo-invest-config
+            - secretRef:
+                name: mundo-invest-secrets
+          volumeMounts:
+            - name: sqlite-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: sqlite-data
+          persistentVolumeClaim:
+            claimName: sqlite-pvc

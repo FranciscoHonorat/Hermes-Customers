@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: mundo-invest-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # Management UI: http://localhost:15672 (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - mundo-invest-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: mundo-invest-api
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_DSN: "/data/mundo_invest.db"
+      RABBITMQ_URI: "amqp://guest:guest@rabbitmq:5672/"
+      # Preencha abaixo para modo real (sem elas a API roda em modo simulado)
+      # PIPEFY_API_TOKEN: "seu_token_aqui"
+      # PIPEFY_PIPE_ID: "seu_pipe_id_aqui"
+    volumes:
+      - db_data:/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - mundo-invest-network
+    restart: unless-stopped
+
+volumes:
+  db_data:
+
+networks:
+  mundo-invest-network:
+    driver: bridge

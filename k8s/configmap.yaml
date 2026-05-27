@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mundo-invest-config
+  namespace: default
+data:
+  PORT: "8080"
+  DATABASE_DSN: "/data/mundo_invest.db"
+  RABBITMQ_URI: "amqp://guest:guest@rabbitmq:5672/"
+  # PIPEFY_API_TOKEN e PIPEFY_PIPE_ID devem ser providos via Secret (não ConfigMap)
