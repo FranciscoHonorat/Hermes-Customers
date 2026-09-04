@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 	_ "modernc.org/sqlite"
 )
 

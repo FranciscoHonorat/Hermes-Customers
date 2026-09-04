@@ -10,7 +10,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/ports/output"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/output"
 )
 
 const (

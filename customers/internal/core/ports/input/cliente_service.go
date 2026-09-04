@@ -3,7 +3,7 @@ package input
 import (
 	"context"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 )
 
 // ClienteService define as operações de negócio expostas para os handlers HTTP.

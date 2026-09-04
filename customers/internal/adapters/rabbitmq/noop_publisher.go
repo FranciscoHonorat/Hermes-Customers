@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/ports/output"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/output"
 )
 
 // NoopPublisher é usado quando RABBITMQ_URI não está configurado.

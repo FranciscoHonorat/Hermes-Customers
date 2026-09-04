@@ -3,7 +3,7 @@ package output
 import (
 	"context"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 )
 
 // ClienteRepository define as operações de persistência para clientes.

@@ -3,7 +3,7 @@ package output
 import (
 	"context"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 )
 
 // ClienteCreatedEvent é o payload publicado na fila quando um cliente é criado.

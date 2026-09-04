@@ -18,7 +18,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 )
 
 const pipefyAPIURL = "https://api.pipefy.com/graphql"

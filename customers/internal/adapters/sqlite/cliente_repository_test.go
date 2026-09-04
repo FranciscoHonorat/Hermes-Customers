@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/adapters/sqlite"
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/adapters/sqlite"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 )
 
 // newTestDB cria um banco SQLite em memória com as tabelas migradas.

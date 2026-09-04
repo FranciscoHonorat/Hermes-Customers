@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/ports/output"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/output"
 )
 
 // ---------------------------------------------------------------------------

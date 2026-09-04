@@ -4,12 +4,12 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/adapters/http/handlers"
-	"github.com/FranciscoHonorat/mundo-invest/internal/adapters/pipefy"
-	"github.com/FranciscoHonorat/mundo-invest/internal/adapters/rabbitmq"
-	"github.com/FranciscoHonorat/mundo-invest/internal/adapters/sqlite"
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/ports/output"
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/service"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/adapters/http/handlers"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/adapters/pipefy"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/adapters/rabbitmq"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/adapters/sqlite"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/output"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/service"
 	"github.com/gin-gonic/gin"
 )
 

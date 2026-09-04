@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/ports/output"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/output"
 )
 
 // ClienteService implementa a interface input.ClienteService com as regras de negócio.

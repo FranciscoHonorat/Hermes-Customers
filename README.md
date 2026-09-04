@@ -109,7 +109,7 @@ sem causar falha — degradação graciosa.
 ```bash
 cd mundo-invest
 go mod tidy
-go run ./cmd/main.go
+go run ./customers/cmd/main.go
 ```
 
 ### Com RabbitMQ (Docker Compose)

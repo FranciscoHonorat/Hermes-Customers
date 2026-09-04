@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/domain"
-	"github.com/FranciscoHonorat/mundo-invest/internal/core/ports/input"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
+	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/input"
 	"github.com/gin-gonic/gin"
 )
 
