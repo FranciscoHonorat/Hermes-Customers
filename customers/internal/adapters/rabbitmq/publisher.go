@@ -11,6 +11,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/ports/output"
+	"shared"
 )
 
 const (
@@ -58,7 +59,16 @@ func NewPublisher(uri string) (*Publisher, error) {
 
 // PublicarClienteCriado serializa e publica o evento na fila clientes_criados.
 func (p *Publisher) PublicarClienteCriado(ctx context.Context, event output.ClienteCreatedEvent) error {
-	body, err := json.Marshal(event)
+	message := shared.ClienteCreatedMessage{
+		ClienteID:       event.ClienteID,
+		Nome:            event.Nome,
+		Email:           event.Email,
+		TipoSolicitacao: event.TipoSolicitacao,
+		ValorPatrimonio: event.ValorPatrimonio,
+		Status:          string(event.Status),
+	}
+
+	body, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("rabbitmq: serializar evento: %w", err)
 	}

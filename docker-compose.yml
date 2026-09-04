@@ -20,7 +20,9 @@ services:
     restart: unless-stopped
 
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: customers/Dockerfile
     container_name: mundo-invest-api
     ports:
       - "8080:8080"
@@ -36,6 +38,21 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    networks:
+      - mundo-invest-network
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: mundo-invest-api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+      CUSTOMERS_SERVICE_URL: "http://api:8080"
+    depends_on:
+      - api
     networks:
       - mundo-invest-network
     restart: unless-stopped
