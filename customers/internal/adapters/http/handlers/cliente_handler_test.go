@@ -124,6 +124,26 @@ func TestCriarCliente_EmailDuplicado_Retorna409(t *testing.T) {
 	}
 }
 
+func TestCriarCliente_BancoIndisponivel_Retorna503(t *testing.T) {
+	svc := &mockClienteService{
+		CriarClienteFn: func(ctx context.Context, c *domain.Cliente) (*domain.Cliente, error) {
+			return nil, domain.ErrBancoIndisponivel
+		},
+	}
+	h := NewClienteHandler(svc)
+
+	rec := doRequest(h.CriarCliente, http.MethodPost, "/clientes", map[string]any{
+		"cliente_nome":     "João",
+		"cliente_email":    "joao@example.com",
+		"tipo_solicitacao": "Abertura de conta",
+		"valor_patrimonio": 1000,
+	})
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("esperava 503, obteve %d — corpo: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestCriarCliente_ErroInesperado_Retorna500(t *testing.T) {
 	svc := &mockClienteService{
 		CriarClienteFn: func(ctx context.Context, c *domain.Cliente) (*domain.Cliente, error) {

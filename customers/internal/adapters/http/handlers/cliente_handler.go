@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
@@ -57,7 +58,11 @@ func (h *ClienteHandler) CriarCliente(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case domain.ErrEmailDuplicado:
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		case domain.ErrBancoIndisponivel:
+			slog.Warn("banco indisponível ao criar cliente", slog.String("email", cliente.Email), slog.Any("error", err))
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 		default:
+			slog.Error("erro inesperado ao criar cliente", slog.String("email", cliente.Email), slog.Any("error", err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "erro interno"})
 		}
 		return

@@ -5,6 +5,32 @@ publicação de eventos assíncronos no RabbitMQ e arquitetura hexagonal (ports 
 
 ---
 
+## Performance
+
+Medido com `hey`/`vegeta` em 2026-09-07, ambiente local via `docker-compose`
+(não é hardware de produção — números comparáveis entre execuções, não uma
+garantia de capacidade). Detalhes e comandos exatos em
+[`docs/testing/resultados-2026-09-07.md`](docs/testing/resultados-2026-09-07.md).
+
+| Métrica | Valor | Comando |
+|---|---|---|
+| Throughput leitura (`GET /health`, customers direto) | 34.714 req/s | `hey -z 15s -c 50 $URL/health` |
+| Throughput leitura (via api-gateway) | 33.837 req/s (~2,5% overhead do proxy) | `hey -z 15s -c 50 $URL/health` |
+| P99 leitura | 5.1 ms | idem |
+| Throughput escrita (`POST /clientes`, baixa concorrência) | 100% sucesso, p99 11.5 ms | `vegeta attack -rate=40/1s -duration=10s` |
+| Concorrência de escrita (5 a 50 requisições simultâneas) | 100% sucesso (WAL + `busy_timeout` + pool de 1 conexão — antes do fix: >98% de erro 500) | `vegeta attack -workers=5..50` |
+| Ingestão RabbitMQ (publish, sem consumidor) | 74.579 eventos/s | `go run ./customers/cmd/loadtest -n 10000` |
+| Memória em repouso (customers) | 22.6 MiB | `docker stats` |
+
+O teste de concorrência forçada achou um limite real (SQLite falhando sob
+escrita simultânea), que foi corrigido e revalidado no mesmo dia — histórico
+completo, com números de antes/depois e o trade-off de latência sob carga,
+em [`docs/testing/resultados-2026-09-07.md`](docs/testing/resultados-2026-09-07.md).
+Reproduza com
+[`docs/testing/roteiro-verificacao-performance.md`](docs/testing/roteiro-verificacao-performance.md).
+
+---
+
 ## Estrutura de Pastas
 
 Monorepo com três módulos Go independentes, unidos por um [Go workspace](https://go.dev/ref/mod#workspaces)

@@ -9,4 +9,5 @@ var (
 	ErrPatrimonioInvalido   = errors.New("valor_patrimonio não pode ser negativo")
 	ErrClienteNaoEncontrado = errors.New("cliente não encontrado")
 	ErrEventoDuplicado      = errors.New("evento já processado (event_id duplicado)")
+	ErrBancoIndisponivel    = errors.New("banco de dados temporariamente indisponível, tente novamente")
 )

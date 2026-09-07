@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -64,7 +65,11 @@ func (h *WebhookHandler) CardUpdated(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		case domain.ErrClienteNaoEncontrado:
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case domain.ErrBancoIndisponivel:
+			slog.Warn("banco indisponível ao processar webhook", slog.String("event_id", event.EventID), slog.Any("error", err))
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 		default:
+			slog.Error("erro inesperado ao processar webhook", slog.String("event_id", event.EventID), slog.Any("error", err))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "erro interno"})
 		}
 		return

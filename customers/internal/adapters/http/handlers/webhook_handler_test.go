@@ -84,6 +84,26 @@ func TestCardUpdated_ClienteNaoEncontrado_Retorna404(t *testing.T) {
 	}
 }
 
+func TestCardUpdated_BancoIndisponivel_Retorna503(t *testing.T) {
+	svc := &mockClienteService{
+		ProcessarWebhookFn: func(ctx context.Context, e *domain.WebhookEvent) error {
+			return domain.ErrBancoIndisponivel
+		},
+	}
+	h := NewWebhookHandler(svc)
+
+	rec := doRequest(h.CardUpdated, http.MethodPost, "/webhooks/pipefy/card-updated", map[string]any{
+		"event_id":      "evt_123",
+		"card_id":       "card_456",
+		"cliente_email": "joao@example.com",
+		"timestamp":     "2026-05-18T12:00:00Z",
+	})
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("esperava 503, obteve %d — corpo: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestCardUpdated_ErroInesperado_Retorna500(t *testing.T) {
 	svc := &mockClienteService{
 		ProcessarWebhookFn: func(ctx context.Context, e *domain.WebhookEvent) error {

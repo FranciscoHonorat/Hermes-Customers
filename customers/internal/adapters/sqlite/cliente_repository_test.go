@@ -4,6 +4,8 @@ package sqlite_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -200,5 +202,45 @@ func TestIntegration_FluxoCompleto_CriarEProcessarWebhook(t *testing.T) {
 	jaProcessado, _ := db.EventoJaProcessado(ctx, "evt_pedro_001")
 	if !jaProcessado {
 		t.Error("evento deveria estar marcado como processado")
+	}
+}
+
+// TestIntegration_EscritasConcorrentes_NaoFalham reproduz, em miniatura, o
+// achado da auditoria de performance de 2026-09-07 (>98% de erro 500 a
+// partir de ~5 escritas simultâneas por contenção do SQLite — ver
+// docs/testing/resultados-2026-09-07.md): N goroutines inserindo clientes
+// distintos ao mesmo tempo não devem falhar depois de NewDB configurar
+// WAL + busy_timeout + MaxOpenConns(1).
+func TestIntegration_EscritasConcorrentes_NaoFalham(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	const concorrencia = 20
+	errs := make(chan error, concorrencia)
+	var wg sync.WaitGroup
+
+	for i := 0; i < concorrencia; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cliente := &domain.Cliente{
+				Nome:            "Concorrente",
+				Email:           fmt.Sprintf("concorrente%d@example.com", i),
+				TipoSolicitacao: "Abertura de conta",
+				ValorPatrimonio: 1000,
+				Status:          domain.StatusAguardandoAnalise,
+			}
+			_, err := db.Salvar(ctx, cliente)
+			errs <- err
+		}(i)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Errorf("escrita concorrente falhou (não deveria, com WAL+busy_timeout): %v", err)
+		}
 	}
 }

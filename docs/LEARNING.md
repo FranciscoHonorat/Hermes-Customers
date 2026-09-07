@@ -85,3 +85,25 @@ Go/k8s deste time.
   usada nesta sessão, sem relação com o código alterado. Nesses casos, validar
   cada peça isoladamente (testes Go com `httptest`, container isolado por
   serviço) é mais confiável do que insistir na integração completa.
+
+## Atualização (2026-09-07, parte 2): rodar o roteiro de performance achou um bug real
+
+- **`go-sqlite`/`database/sql` sem tuning é uma armadilha clássica que a
+  auditoria de código não pega, só carga real pega.** `go vet`, testes
+  unitários com mocks e até os testes de integração com SQLite `:memory:`
+  (que rodam sequencialmente) não têm como revelar contenção de escrita
+  concorrente — só apareceu forçando `vegeta -workers=N` contra o serviço de
+  verdade. Lição: para qualquer serviço com estado, pelo menos um teste de
+  concorrência forçada (não só de taxa) deveria fazer parte do roteiro
+  padrão, não ser uma descoberta acidental.
+- **A correção de SQLite+`database/sql` mais citada por aí
+  (`journal_mode=WAL` + `busy_timeout` + `SetMaxOpenConns(1)`) realmente
+  resolve** — de 98% de falha para 100% de sucesso no mesmo teste, sem
+  mudar nenhuma outra parte do sistema. O trade-off (latência sobindo com a
+  concorrência, já que tudo serializa numa conexão) é o comportamento
+  correto a se esperar, não um efeito colateral a esconder.
+- **Um `default: c.JSON(500, "erro interno")` sem logar o erro original é
+  uma cegueira de produção esperando para acontecer.** Só descobrimos a
+  causa raiz por eliminação (nenhum outro erro de domínio bate com o
+  sintoma) — se o handler tivesse logado o erro desde o início, a
+  investigação teria sido imediata em vez de indireta.
