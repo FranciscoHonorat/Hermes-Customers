@@ -22,7 +22,7 @@ type CreateClienteRequest struct {
 	ClienteNome     string  `json:"cliente_nome"      binding:"required"`
 	ClienteEmail    string  `json:"cliente_email"     binding:"required"`
 	TipoSolicitacao string  `json:"tipo_solicitacao"  binding:"required"`
-	ValorPatrimonio float64 `json:"valor_patrimonio"  binding:"required"`
+	ValorPatrimonio float64 `json:"valor_patrimonio"  binding:"min=0"`
 }
 
 // CriarCliente godoc
@@ -53,8 +53,10 @@ func (h *ClienteHandler) CriarCliente(c *gin.Context) {
 	criado, err := h.svc.CriarCliente(c.Request.Context(), cliente)
 	if err != nil {
 		switch err {
-		case domain.ErrEmailInvalido, domain.ErrCampoObrigatorio:
+		case domain.ErrEmailInvalido, domain.ErrCampoObrigatorio, domain.ErrPatrimonioInvalido:
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case domain.ErrEmailDuplicado:
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "erro interno"})
 		}

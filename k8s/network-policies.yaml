@@ -1,0 +1,77 @@
+# Isola o tráfego dentro do namespace: nega tudo por padrão e libera
+# explicitamente só os caminhos que a aplicação realmente usa:
+#   internet/Ingress → gateway (8000) → customers (8080) → rabbitmq (5672)
+# Sem isso, qualquer pod no namespace "default" pode falar diretamente com o
+# customers ou com o rabbitmq, pulando o gateway.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# O gateway é o ponto de entrada público (via Ingress); não restringimos a
+# origem aqui — quem controla o acesso externo é o Ingress/Ingress Controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-gateway
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: mundo-invest-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8000
+---
+# customers só aceita conexões do api-gateway — nenhum outro pod do
+# namespace pode chamar a API diretamente.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-to-customers
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: mundo-invest-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: mundo-invest-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# rabbitmq (AMQP) só aceita conexões do serviço customers, o único
+# publisher/consumer hoje. A porta de management (15672) fica fora desta
+# allowlist — acesso administrativo deve ser via `kubectl port-forward`.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-customers-to-rabbitmq
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: rabbitmq
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: mundo-invest-api
+      ports:
+        - protocol: TCP
+          port: 5672

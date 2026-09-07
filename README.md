@@ -7,62 +7,48 @@ publicação de eventos assíncronos no RabbitMQ e arquitetura hexagonal (ports 
 
 ## Estrutura de Pastas
 
+Monorepo com três módulos Go independentes, unidos por um [Go workspace](https://go.dev/ref/mod#workspaces)
+(`go.work`) para desenvolvimento local — cada um com seu próprio `go.mod`:
+
 ```
-mundo-invest/
-├── cmd/
-│   └── main.go                              # Entry point — composição das dependências
-├── internal/
-│   ├── core/                                # Camada interna: zero dependência de infraestrutura
-│   │   ├── domain/
-│   │   │   ├── cliente.go                   # Entidade Cliente + validação + cálculo de prioridade
-│   │   │   ├── webhook_event.go             # Entidade WebhookEvent
-│   │   │   ├── errors.go                    # Erros de domínio tipados
-│   │   │   └── cliente_test.go              # Testes unitários de domínio
-│   │   ├── ports/
-│   │   │   ├── input/
-│   │   │   │   └── cliente_service.go       # Interface de entrada (service)
-│   │   │   └── output/
-│   │   │       ├── cliente_repository.go    # Interfaces de persistência
-│   │   │       ├── pipefy_client.go         # Interface do Pipefy GraphQL client
-│   │   │       └── event_publisher.go       # Interface de publicação de eventos (RabbitMQ)
-│   │   └── service/
-│   │       ├── cliente_service.go           # Regras de negócio
-│   │       └── cliente_service_test.go      # Testes unitários (mocks) — 4 casos
-│   └── adapters/                            # Camada externa: implementações concretas
-│       ├── sqlite/
-│       │   ├── cliente_repository.go        # SQLite: clientes + webhook_events
-│       │   └── cliente_repository_test.go   # Testes de INTEGRAÇÃO (SQLite :memory:)
-│       ├── pipefy/
-│       │   └── client.go                    # GraphQL mutations createCard / updateCardField
-│       ├── rabbitmq/
-│       │   ├── publisher.go                 # Publisher AMQP real
-│       │   └── noop_publisher.go            # Noop para ambiente sem RabbitMQ
-│       └── http/handlers/
-│           ├── cliente_handler.go           # POST /clientes
-│           ├── webhook_handler.go           # POST /webhooks/pipefy/card-updated
-│           └── health_handler.go            # GET /health (probes k8s)
-├── k8s/
-│   ├── configmap.yaml
-│   ├── secret.yaml
-│   ├── api-deployment.yaml
-│   ├── api-service.yaml
-│   ├── sqlite-pvc.yaml
-│   ├── rabbitmq-deployment.yaml
-│   └── rabbitmq-service.yaml
-├── go.mod
-├── Dockerfile
+Hermes-Customers/
+├── customers/                                 # módulo github.com/.../mundo-invest/customers
+│   ├── cmd/main.go                            # Entry point — composição das dependências
+│   ├── internal/
+│   │   ├── core/                              # zero dependência de infraestrutura
+│   │   │   ├── domain/                        # Cliente, WebhookEvent, erros tipados
+│   │   │   ├── ports/{input,output}/          # interfaces de entrada/saída
+│   │   │   └── service/                       # regras de negócio
+│   │   └── adapters/                          # implementações concretas
+│   │       ├── sqlite/                        # clientes + webhook_events
+│   │       ├── pipefy/                        # GraphQL createCard / updateCardField
+│   │       ├── rabbitmq/                      # publisher (com reconexão) + noop
+│   │       └── http/
+│   │           ├── handlers/                  # POST /clientes, /webhooks/..., /health
+│   │           └── middleware/                # auth, assinatura de webhook, request-id, métricas
+│   ├── go.mod · go.sum · Dockerfile
+├── api-gateway/                                # módulo api-gateway — ponto de entrada único
+│   ├── cmd/main.go
+│   ├── internal/{adapters/proxy,handlers,middleware}/  # proxy, CORS, rate limit, métricas
+│   └── go.mod · go.sum · Dockerfile
+├── shared/                                     # módulo shared — DTOs compartilhados (eventos)
+├── k8s/                                        # manifests de Deployment/Service/Ingress/NetworkPolicy
+├── docs/adr/                                   # Architecture Decision Records
+├── docs/LEARNING.md                            # aprendizados técnicos registrados
+├── .github/workflows/                          # CI (lint/test) e build & publish de imagens
+├── go.work · go.work.sum                       # workspace Go (liga os 3 módulos localmente)
 ├── docker-compose.yml
 └── .env.example
 ```
 
-**Fluxo de dependências (hexagonal):**
+**Fluxo de dependências (hexagonal, dentro do módulo `customers`):**
 ```
 Handler → Service (port input) → [Repository port output | Pipefy port output | EventPublisher port output]
                                           ↓                        ↓                        ↓
                                     SQLite adapter          Pipefy adapter          RabbitMQ adapter
 ```
 As camadas internas (domain, service, ports) nunca importam adapters — as interfaces são
-injetadas via construtor (dependency injection) no `cmd/main.go`.
+injetadas via construtor (dependency injection) no `cmd/main.go`. Ver `docs/adr/0001-*.md`.
 
 ---
 
@@ -101,40 +87,62 @@ sem causar falha — degradação graciosa.
 ## Execução Local
 
 ### Pré-requisitos
-- Go 1.22+
-- Docker (opcional, para RabbitMQ)
+- Go 1.25+
+- Docker (opcional, para RabbitMQ / api-gateway / build das imagens)
 
 ### Modo simples (sem RabbitMQ)
 
 ```bash
-cd mundo-invest
-go mod tidy
-go run ./customers/cmd/main.go
+cd customers
+go run ./cmd/main.go
 ```
 
-### Com RabbitMQ (Docker Compose)
+### Stack completa — customers + RabbitMQ + api-gateway (Docker Compose)
 
 ```bash
 docker-compose up --build
 ```
 
 RabbitMQ Management UI disponível em `http://localhost:15672` (guest/guest).
+API acessível direto em `http://localhost:8080` (customers) ou pelo ponto de
+entrada único em `http://localhost:8000/api/v1/customers/...` (api-gateway).
 
-### Variáveis de Ambiente
+### Variáveis de Ambiente — customers
 
-| Variável            | Padrão              | Descrição                              |
-|---------------------|---------------------|----------------------------------------|
-| `PORT`              | `8080`              | Porta HTTP                             |
-| `DATABASE_DSN`      | `mundo_invest.db`   | Caminho do arquivo SQLite              |
-| `RABBITMQ_URI`      | _(vazio)_           | URI AMQP (ex: `amqp://guest:guest@localhost:5672/`) |
-| `PIPEFY_API_TOKEN`  | _(vazio)_           | Token Bearer da API Pipefy             |
-| `PIPEFY_PIPE_ID`    | _(vazio)_           | ID do Pipe onde os cards serão criados |
+| Variável                | Padrão              | Descrição                              |
+|--------------------------|---------------------|----------------------------------------|
+| `PORT`                   | `8080`              | Porta HTTP                             |
+| `DATABASE_DSN`           | `mundo_invest.db`   | Caminho do arquivo SQLite              |
+| `RABBITMQ_URI`           | _(vazio)_           | URI AMQP (ex: `amqp://guest:guest@localhost:5672/`) |
+| `PIPEFY_API_TOKEN`       | _(vazio)_           | Token Bearer da API Pipefy             |
+| `PIPEFY_PIPE_ID`         | _(vazio)_           | ID do Pipe onde os cards serão criados |
+| `API_AUTH_TOKEN`         | _(vazio)_           | Token Bearer exigido em `POST /clientes`. Vazio = endpoint sem autenticação (só aceitável em dev local — um aviso é logado no boot) |
+| `PIPEFY_WEBHOOK_SECRET`  | _(vazio)_           | Segredo HMAC-SHA256 para validar o header `X-Pipefy-Signature` no webhook. Vazio = sem verificação de assinatura |
+| `GIN_MODE`               | `release`\*         | \*O binário já força `release` quando a variável não está definida — só sobrescreva para `debug` em desenvolvimento |
+
+### Variáveis de Ambiente — api-gateway
+
+| Variável                | Padrão                    | Descrição                              |
+|--------------------------|----------------------------|----------------------------------------|
+| `PORT`                   | `8000`                     | Porta HTTP                             |
+| `CUSTOMERS_SERVICE_URL`  | `http://localhost:8080`    | URL do serviço customers               |
+| `ALLOWED_ORIGINS`        | _(vazio)_                  | Origens permitidas por CORS, separadas por vírgula. Vazio = nenhum cabeçalho CORS enviado |
+| `RATE_LIMIT_PER_SECOND`  | `10`                       | Requisições por segundo permitidas por IP |
+| `RATE_LIMIT_BURST`       | `20`                       | Rajada máxima do rate limiter por IP   |
+
+Ambos os serviços expõem `GET /health` (liveness/readiness) e `GET /metrics`
+(métricas Prometheus: contagem e latência de requisições HTTP).
 
 ---
 
 ## Rodando os Testes
 
+Cada módulo (`customers`, `api-gateway`) roda seus testes a partir do seu
+próprio diretório — é assim que o CI (`.github/workflows/ci.yml`) também roda.
+
 ```bash
+cd customers
+
 # Todos os testes (unitários + integração)
 go test ./... -v
 
@@ -146,6 +154,14 @@ go test ./internal/adapters/sqlite/... -v
 
 # Apenas testes de domínio
 go test ./internal/core/domain/... -v
+
+# Apenas testes da camada HTTP (handlers + middleware de segurança)
+go test ./internal/adapters/http/... -v
+```
+
+```bash
+cd api-gateway
+go test ./... -v   # proxy (stripPrefix), health, CORS, rate limit
 ```
 
 ### Testes unitários (`service/cliente_service_test.go`)
@@ -184,9 +200,13 @@ curl http://localhost:8080/health
 
 ### POST /clientes
 
+Requer `Authorization: Bearer <API_AUTH_TOKEN>` quando essa variável está
+configurada (ver [Variáveis de Ambiente](#variáveis-de-ambiente--customers)).
+
 ```bash
 curl -X POST http://localhost:8080/clientes \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_AUTH_TOKEN" \
   -d '{
     "cliente_nome": "João Silva",
     "cliente_email": "joao.silva@example.com",
@@ -212,24 +232,46 @@ curl -X POST http://localhost:8080/clientes \
 { "error": "e-mail inválido" }
 ```
 
+**Resposta 401 (token ausente/incorreto, quando `API_AUTH_TOKEN` está configurado):**
+```json
+{ "error": "não autorizado" }
+```
+
+**Resposta 409 (e-mail já cadastrado):**
+```json
+{ "error": "e-mail já cadastrado" }
+```
+
 ---
 
 ### POST /webhooks/pipefy/card-updated
 
+Quando `PIPEFY_WEBHOOK_SECRET` está configurado, a requisição precisa do
+header `X-Pipefy-Signature` com o HMAC-SHA256 (hex) do corpo bruto:
+
 ```bash
+BODY='{
+  "event_id": "evt_123",
+  "card_id": "card_456",
+  "cliente_email": "joao.silva@example.com",
+  "timestamp": "2026-05-18T12:00:00Z"
+}'
+SIGNATURE=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$PIPEFY_WEBHOOK_SECRET" | sed 's/^.* //')
+
 curl -X POST http://localhost:8080/webhooks/pipefy/card-updated \
   -H "Content-Type: application/json" \
-  -d '{
-    "event_id": "evt_123",
-    "card_id": "card_456",
-    "cliente_email": "joao.silva@example.com",
-    "timestamp": "2026-05-18T12:00:00Z"
-  }'
+  -H "X-Pipefy-Signature: $SIGNATURE" \
+  -d "$BODY"
 ```
 
 **Resposta 200:**
 ```json
 { "message": "webhook processado com sucesso" }
+```
+
+**Resposta 401 (assinatura ausente/inválida, quando `PIPEFY_WEBHOOK_SECRET` está configurado):**
+```json
+{ "error": "assinatura de webhook inválida" }
 ```
 
 **Resposta 409 (event_id duplicado — idempotência):**
@@ -241,7 +283,7 @@ curl -X POST http://localhost:8080/webhooks/pipefy/card-updated \
 
 ## Mutations GraphQL do Pipefy
 
-O código completo está em `internal/adapters/pipefy/client.go`, com links para a documentação oficial.  
+O código completo está em `customers/internal/adapters/pipefy/client.go`, com links para a documentação oficial.  
 Spec: https://developers.pipefy.com/reference/mutations-cards
 
 ### createCard
@@ -295,30 +337,48 @@ Duas chamadas sequenciais (um campo por chamada):
 ## Deploy Kubernetes
 
 ```bash
-# Aplicar todos os manifests
-kubectl apply -f k8s/
+# 1. Criar o Secret real a partir do template (NUNCA commitar o resultado —
+#    k8s/secret.yaml já está no .gitignore)
+cp k8s/secret.example.yaml k8s/secret.yaml
+# edite k8s/secret.yaml com os valores reais, depois:
+kubectl apply -f k8s/secret.yaml
+
+# 2. Aplicar o restante dos manifests
+kubectl apply -f k8s/configmap.yaml -f k8s/api-gateway-configmap.yaml \
+  -f k8s/sqlite-pvc.yaml \
+  -f k8s/rabbitmq-deployment.yaml -f k8s/rabbitmq-service.yaml \
+  -f k8s/api-deployment.yaml -f k8s/api-service.yaml \
+  -f k8s/api-gateway-deployment.yaml -f k8s/api-gateway-service.yaml \
+  -f k8s/network-policies.yaml \
+  -f k8s/ingress.yaml   # ajuste host/ingressClassName antes de aplicar
 
 # Verificar pods
 kubectl get pods
 
-# Acompanhar logs da API
+# Acompanhar logs
 kubectl logs -f deployment/mundo-invest-api
+kubectl logs -f deployment/mundo-invest-gateway
 
-# Acessar a API (port-forward)
-kubectl port-forward svc/mundo-invest-api 8080:80
+# Acessar via gateway (port-forward)
+kubectl port-forward svc/mundo-invest-gateway 8000:80
 ```
 
 Manifests disponíveis em `k8s/`:
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `configmap.yaml` | Variáveis de ambiente não-secretas |
-| `secret.yaml` | Token Pipefy e Pipe ID |
+| `configmap.yaml` | Variáveis de ambiente não-secretas do customers |
+| `api-gateway-configmap.yaml` | Variáveis de ambiente não-secretas do api-gateway |
+| `secret.example.yaml` | Template do Secret (Pipefy, `API_AUTH_TOKEN`, `PIPEFY_WEBHOOK_SECRET`) — copie para `secret.yaml` e preencha localmente; nunca commite o resultado. Ver `docs/adr/0006-*.md` |
 | `sqlite-pvc.yaml` | PersistentVolumeClaim de 1Gi para o SQLite |
-| `api-deployment.yaml` | Deployment da API (2 réplicas, probes, resources) |
-| `api-service.yaml` | ClusterIP service na porta 80 |
+| `api-deployment.yaml` | Deployment do customers (1 réplica — ver `docs/adr/0003-*.md` sobre SQLite —, securityContext non-root, probes, resources) |
+| `api-service.yaml` | ClusterIP na porta 80 |
+| `api-gateway-deployment.yaml` | Deployment do api-gateway (2 réplicas, stateless, securityContext non-root) |
+| `api-gateway-service.yaml` | ClusterIP na porta 80 |
 | `rabbitmq-deployment.yaml` | RabbitMQ com management UI |
 | `rabbitmq-service.yaml` | ClusterIP para AMQP (5672) e management (15672) |
+| `network-policies.yaml` | Deny-all + allow-list explícita: internet → gateway → customers → rabbitmq |
+| `ingress.yaml` | Exposição externa via Ingress Controller (ex.: ingress-nginx); ajuste `host`/`ingressClassName` |
 
 ---
 
@@ -346,3 +406,26 @@ injetados nas Lambdas em tempo de execução.
 
 **Observabilidade:** logs estruturados (`slog`) vão automaticamente ao **CloudWatch Logs**;
 métricas de latência e erros via **CloudWatch Metrics**; alarmes no **SNS** para o time de ops.
+
+---
+
+## CI/CD
+
+`.github/workflows/ci.yml` roda em todo push/PR para `main`: `gofmt`, `go vet`,
+`golangci-lint` e `go test -race -cover`, para os módulos `customers` e
+`api-gateway` de forma independente.
+
+`.github/workflows/docker-publish.yml` builda e publica as duas imagens em
+`ghcr.io/<owner>/mundo-invest-{customers,gateway}` a cada push em `main`,
+tagueadas pelo SHA do commit (além de `latest`) — usa `GITHUB_TOKEN`, sem
+segredos adicionais para configurar.
+
+---
+
+## Documentação adicional
+
+- [`docs/adr/`](docs/adr/) — Architecture Decision Records: por que cada peça
+  (arquitetura hexagonal, monorepo com Go workspaces, SQLite, RabbitMQ,
+  api-gateway) é como é, e a decisão de gestão de segredos ainda em aberto.
+- [`docs/LEARNING.md`](docs/LEARNING.md) — aprendizados técnicos registrados
+  durante a auditoria de backend/infra deste repositório.

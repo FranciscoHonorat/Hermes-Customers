@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mundo-invest-gateway-config
+  namespace: default
+data:
+  PORT: "8000"
+  CUSTOMERS_SERVICE_URL: "http://mundo-invest-api:80"
+  RATE_LIMIT_PER_SECOND: "10"
+  RATE_LIMIT_BURST: "20"
+  # ALLOWED_ORIGINS: "https://app.mundo-invest.com.br"

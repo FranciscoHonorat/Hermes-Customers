@@ -18,6 +18,14 @@ spec:
       containers:
         - name: rabbitmq
           image: rabbitmq:3-management
+          # A imagem oficial precisa de root no boot para ajustar
+          # permissões do diretório de dados antes de rodar como o usuário
+          # "rabbitmq" — por isso não fixamos runAsNonRoot/runAsUser aqui,
+          # diferente dos deployments da API e do gateway.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 5672   # AMQP
             - containerPort: 15672  # Management UI

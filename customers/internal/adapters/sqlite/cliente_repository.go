@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/FranciscoHonorat/mundo-invest/customers/internal/core/domain"
 	_ "modernc.org/sqlite"
@@ -54,6 +55,13 @@ func (r *DB) migrate() error {
 	return err
 }
 
+// isUniqueConstraintError detecta violação de constraint UNIQUE do SQLite,
+// independente da mensagem exata do driver (modernc.org/sqlite reporta como
+// "UNIQUE constraint failed: <tabela>.<coluna>").
+func isUniqueConstraintError(err error) bool {
+	return strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
 // ---------------------------------------------------------------------------
 // ClienteRepository
 // ---------------------------------------------------------------------------
@@ -66,6 +74,9 @@ func (r *DB) Salvar(ctx context.Context, c *domain.Cliente) (*domain.Cliente, er
 		c.Nome, c.Email, c.TipoSolicitacao, c.ValorPatrimonio, string(c.Status), string(c.Prioridade),
 	)
 	if err != nil {
+		if isUniqueConstraintError(err) {
+			return nil, domain.ErrEmailDuplicado
+		}
 		return nil, fmt.Errorf("sqlite: salvar cliente: %w", err)
 	}
 	id, _ := res.LastInsertId()

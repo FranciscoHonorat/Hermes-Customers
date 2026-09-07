@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   rabbitmq:
     image: rabbitmq:3-management
@@ -33,6 +31,10 @@ services:
       # Preencha abaixo para modo real (sem elas a API roda em modo simulado)
       # PIPEFY_API_TOKEN: "seu_token_aqui"
       # PIPEFY_PIPE_ID: "seu_pipe_id_aqui"
+      # Sem elas, os endpoints de escrita rodam sem autenticação/verificação
+      # de assinatura (aceitável em dev local, nunca em produção)
+      # API_AUTH_TOKEN: "defina_um_token_forte_aqui"
+      # PIPEFY_WEBHOOK_SECRET: "defina_um_segredo_forte_aqui"
     volumes:
       - db_data:/data
     depends_on:
@@ -51,6 +53,9 @@ services:
     environment:
       PORT: "8000"
       CUSTOMERS_SERVICE_URL: "http://api:8080"
+      RATE_LIMIT_PER_SECOND: "10"
+      RATE_LIMIT_BURST: "20"
+      # ALLOWED_ORIGINS: "http://localhost:3000"
     depends_on:
       - api
     networks:

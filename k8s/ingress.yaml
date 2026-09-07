@@ -1,0 +1,29 @@
+# Requer um Ingress Controller instalado no cluster (ex.: ingress-nginx).
+# Ajuste `ingressClassName` e `host` para o controller/domínio reais do
+# ambiente antes de aplicar. Toda a API é exposta através do api-gateway —
+# o serviço customers (mundo-invest-api) não é exposto diretamente fora do
+# cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mundo-invest-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.mundo-invest.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mundo-invest-gateway
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - api.mundo-invest.example.com
+      secretName: mundo-invest-tls

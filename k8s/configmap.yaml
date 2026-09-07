@@ -7,4 +7,5 @@ data:
   PORT: "8080"
   DATABASE_DSN: "/data/mundo_invest.db"
   RABBITMQ_URI: "amqp://guest:guest@rabbitmq:5672/"
-  # PIPEFY_API_TOKEN e PIPEFY_PIPE_ID devem ser providos via Secret (não ConfigMap)
+  # PIPEFY_API_TOKEN, PIPEFY_PIPE_ID, API_AUTH_TOKEN e PIPEFY_WEBHOOK_SECRET
+  # devem ser providos via Secret (ver k8s/secret.example.yaml), não ConfigMap

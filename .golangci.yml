@@ -1,0 +1,23 @@
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosimple
+    - bodyclose
+    - gosec
+
+issues:
+  exclude-rules:
+    # Testes fazem type assertions e ignoram alguns erros de setup de
+    # propósito (ex.: descartar erro de rand.Read em helpers de teste).
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec

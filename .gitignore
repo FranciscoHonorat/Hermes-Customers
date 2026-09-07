@@ -3,3 +3,4 @@
 *.db-wal
 .env
 vendor/
+k8s/secret.yaml

@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+docs/
+k8s/
+README.md

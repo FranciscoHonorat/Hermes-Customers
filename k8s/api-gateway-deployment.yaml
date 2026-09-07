@@ -1,39 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mundo-invest-api
+  name: mundo-invest-gateway
   namespace: default
   labels:
-    app: mundo-invest-api
+    app: mundo-invest-gateway
 spec:
-  # replicas fixado em 1: o storage é SQLite num único arquivo em PVC
-  # ReadWriteOnce (ver k8s/sqlite-pvc.yaml) — múltiplos processos escrevendo
-  # concorrentemente não é seguro nesse desenho. Ver ADR-0003
-  # (docs/adr/0003-sqlite-como-storage-do-mvp.md). Só suba para >1 réplica
-  # depois de migrar para um banco que suporte múltiplos writers (Postgres/RDS).
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: mundo-invest-api
+      app: mundo-invest-gateway
   template:
     metadata:
       labels:
-        app: mundo-invest-api
+        app: mundo-invest-gateway
     spec:
       containers:
-        - name: api
+        - name: api-gateway
           # Publicada por .github/workflows/docker-publish.yml. Em produção,
           # troque `latest` pela tag imutável do SHA (ver comentário no
           # workflow e achado #23 da auditoria).
-          image: ghcr.io/franciscohonorat/mundo-invest-customers:latest
+          image: ghcr.io/franciscohonorat/mundo-invest-gateway:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - containerPort: 8000
           envFrom:
             - configMapRef:
-                name: mundo-invest-config
-            - secretRef:
-                name: mundo-invest-secrets
+                name: mundo-invest-gateway-config
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -42,11 +35,6 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-          volumeMounts:
-            - name: sqlite-data
-              mountPath: /data
-            - name: tmp
-              mountPath: /tmp
           resources:
             requests:
               cpu: "100m"
@@ -57,18 +45,12 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8080
-            initialDelaySeconds: 10
+              port: 8000
+            initialDelaySeconds: 5
             periodSeconds: 15
           readinessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
-      volumes:
-        - name: sqlite-data
-          persistentVolumeClaim:
-            claimName: sqlite-pvc
-        - name: tmp
-          emptyDir: {}

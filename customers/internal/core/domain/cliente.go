@@ -48,6 +48,9 @@ func (c *Cliente) Validate() error {
 	if strings.TrimSpace(c.TipoSolicitacao) == "" {
 		return ErrCampoObrigatorio
 	}
+	if c.ValorPatrimonio < 0 {
+		return ErrPatrimonioInvalido
+	}
 	return nil
 }
 
